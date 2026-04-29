@@ -268,6 +268,133 @@ By Severity:
 - 每日处理能力：200 万+ Tokens
 - 任务完成效率提升约 60%
 
+## 在 Vibe Coding 中调用
+
+Vibe Coding（氛围编程）是一种由 AI 辅助的编程模式，开发者通过自然语言描述意图，AI 生成代码并自动进行质量检查。Code Review Agent 可无缝集成到这一工作流中。
+
+### 调用方式
+
+#### 1. CLI 方式（快速检查）
+
+```bash
+# 分析单文件
+python main.py ./src/utils.py
+
+# 分析整个目录
+python main.py ./src
+
+# 分析代码字符串
+python main.py --code "def MyFunction():\n    try:\n        x = 1\n    except:\n        pass"
+
+# 输出到文件（便于后续处理）
+python main.py ./src --output result.json --quiet
+```
+
+#### 2. Python API 方式（深度集成）
+
+```python
+from agent import CodeReviewAgent
+
+# 初始化 Agent
+agent = CodeReviewAgent(use_llm=True, api_key="your-api-key")
+
+# 在 vibe coding 循环中调用
+code = """
+def CalculateUserScore(user_id, name, email, age, scores, history):
+    # AI 生成的代码
+    total = sum(scores)
+    if age < 18:
+        return total * 0.8
+    return total
+"""
+
+result = agent.run(code=code)
+
+# 获取分析结果
+print(f"问题数: {len(result['analysis']['issues'])}")
+print(f"质量分: {result['feedback']['quality_score']}")
+
+# 逐条处理优化建议
+for suggestion in result['validated']:
+    print(f"- [{suggestion['priority']}] {suggestion['message']}")
+```
+
+#### 3. 集成到 AI Coding Assistant
+
+```python
+# 作为 AI Coding Assistant 的后处理步骤
+async def vibe_coding_flow(user_prompt: str, llm_client):
+    # 1. AI 生成代码
+    generated_code = await llm_client.generate(user_prompt)
+
+    # 2. 调用 Code Review Agent 检查
+    agent = CodeReviewAgent()
+    review_result = agent.run(code=generated_code)
+
+    # 3. 如果有问题，返回改进建议
+    if review_result['feedback']['quality_score'] < 0.7:
+        return {
+            "code": generated_code,
+            "needs_revision": True,
+            "suggestions": review_result['validated']
+        }
+
+    return {"code": generated_code, "needs_revision": False}
+```
+
+### 工作流集成示意
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Vibe Coding Flow                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   用户: "帮我写一个用户验证函数"                              │
+│                        │                                    │
+│                        ▼                                    │
+│   ┌─────────────────────────────────────────┐              │
+│   │  LLM 生成代码                            │              │
+│   │  def verify_user(name, pwd, token...):  │              │
+│   └─────────────────────┬───────────────────┘              │
+│                         │                                   │
+│                         ▼                                   │
+│   ┌─────────────────────────────────────────┐              │
+│   │  Code Review Agent 分析                 │              │
+│   │  - 发现 5 个问题                         │              │
+│   │  - 生成 4 条建议                         │              │
+│   │  - 质量分: 85%                          │              │
+│   └─────────────────────┬───────────────────┘              │
+│                         │                                   │
+│                         ▼                                   │
+│   ┌─────────────────────────────────────────┐              │
+│   │  返回给用户                              │              │
+│   │  - 生成的代码                            │              │
+│   │  - 优化建议（含代码示例）                │              │
+│   │  - 是否需要人工确认                      │              │
+│   └─────────────────────────────────────────┘              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 现有实现能力确认
+
+| Vibe Coding 需求 | 现有支持 | 说明 |
+|-----------------|---------|------|
+| 快速代码检查 | ✅ | `python main.py <file>` 单命令完成 |
+| 批量目录分析 | ✅ | `agent.run_directory(path)` 递归分析 |
+| 结构化输出 | ✅ | 返回 JSON 格式结果，支持 `--output` |
+| 实时反馈 | ✅ | `agent.run()` 同步返回结果 |
+| LLM 增强 | ✅ | `run_with_llm()` 方法已预留 |
+| CI/CD 集成 | ✅ | 支持 `--quiet` 和 `--output` 无交互模式 |
+| 交互式审查 | ✅ | 无参数时进入交互模式，Ctrl+D 结束 |
+
+### 缺失能力（待实现）
+
+- [ ] **真正对接 LLM API** - `run_with_llm()` 目前是占位符，需要接入 OpenAI/Anthropic API
+- [ ] **自动修复** - 目前只输出建议，未实现自动应用修改
+- [ ] **增量分析** - 未支持 diff 模式分析（只分析变更部分）
+- [ ] **多语言支持** - 目前仅支持 Python AST 分析
+
 ## 项目结构
 
 ```

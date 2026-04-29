@@ -17,7 +17,9 @@ class Validator:
         for suggestion in suggestions:
             result = self._validate_single(code, suggestion)
             if result["is_valid"]:
-                validated.append(result)
+                # Merge original suggestion fields into result
+                merged = {**suggestion, **result}
+                validated.append(merged)
         self.validation_history.append(validated)
         return validated
 
